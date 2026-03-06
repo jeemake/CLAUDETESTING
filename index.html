@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carte des arrêts de Gbaka - Cocody, Abidjan</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #header {
+            background: linear-gradient(135deg, #FF6B00, #FF8C00);
+            color: white;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            position: relative;
+        }
+
+        #header h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        #header .subtitle {
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+
+        #header .logo {
+            font-size: 2rem;
+        }
+
+        #controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 20px;
+            background: #f8f8f8;
+            border-bottom: 1px solid #ddd;
+            z-index: 999;
+            position: relative;
+        }
+
+        #search {
+            flex: 1;
+            max-width: 400px;
+            padding: 8px 14px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #search:focus {
+            border-color: #FF6B00;
+        }
+
+        .filter-btn {
+            padding: 6px 14px;
+            border: 2px solid #FF6B00;
+            background: white;
+            color: #FF6B00;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover,
+        .filter-btn.active {
+            background: #FF6B00;
+            color: white;
+        }
+
+        #map {
+            height: calc(100vh - 110px);
+            width: 100%;
+        }
+
+        .gbaka-icon {
+            background: #FF6B00;
+            border: 3px solid white;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .gbaka-icon-major {
+            background: #D32F2F;
+            width: 34px;
+            height: 34px;
+        }
+
+        .popup-content {
+            min-width: 200px;
+        }
+
+        .popup-content h3 {
+            color: #FF6B00;
+            margin-bottom: 6px;
+            font-size: 1rem;
+        }
+
+        .popup-content .stop-type {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .popup-content .stop-type.major {
+            background: #FFCDD2;
+            color: #D32F2F;
+        }
+
+        .popup-content .stop-type.regular {
+            background: #FFE0B2;
+            color: #E65100;
+        }
+
+        .popup-content .routes {
+            margin-top: 6px;
+            font-size: 0.85rem;
+            color: #555;
+        }
+
+        .popup-content .routes strong {
+            color: #333;
+        }
+
+        .legend {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            font-size: 0.8rem;
+            line-height: 1.8;
+        }
+
+        .legend h4 {
+            margin-bottom: 6px;
+            color: #333;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .legend-dot.major { background: #D32F2F; }
+        .legend-dot.regular { background: #FF6B00; }
+        .legend-line { background: #FF6B00; height: 3px; width: 14px; border-radius: 2px; }
+
+        #stop-count {
+            font-size: 0.85rem;
+            color: #666;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<div id="header">
+    <div>
+        <h1>Gbaka Cocody - Carte Interactive</h1>
+        <div class="subtitle">Arrêts de minibus dans la commune de Cocody, Abidjan</div>
+    </div>
+    <div class="logo">🚐</div>
+</div>
+
+<div id="controls">
+    <input type="text" id="search" placeholder="Rechercher un arrêt..." />
+    <button class="filter-btn active" data-filter="all">Tous</button>
+    <button class="filter-btn" data-filter="major">Carrefours majeurs</button>
+    <button class="filter-btn" data-filter="regular">Arrêts réguliers</button>
+    <span id="stop-count"></span>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// Gbaka stops data for Cocody, Abidjan
+const gbakaStops = [
+    // Major carrefours / hubs
+    {
+        name: "Carrefour de la Vie",
+        lat: 5.3495,
+        lng: -3.9830,
+        type: "major",
+        description: "Carrefour principal, point de convergence de nombreuses lignes de gbaka",
+        routes: ["Adjamé - Cocody", "Yopougon - Cocody", "Abobo - Cocody"]
+    },
+    {
+        name: "Saint-Jean",
+        lat: 5.3440,
+        lng: -3.9890,
+        type: "major",
+        description: "Arrêt majeur près du centre commercial et du quartier Saint-Jean",
+        routes: ["Adjamé - Cocody", "Plateau - Cocody"]
+    },
+    {
+        name: "Angré Star 11 (Terminus)",
+        lat: 5.3737,
+        lng: -3.9823,
+        type: "major",
+        description: "Terminus de gbaka à Angré, dessert tout le quartier Angré",
+        routes: ["Adjamé - Angré", "Abobo - Angré"]
+    },
+    {
+        name: "Carrefour Palmeraie",
+        lat: 5.3580,
+        lng: -3.9750,
+        type: "major",
+        description: "Intersection majeure vers la Palmeraie, zone très fréquentée",
+        routes: ["Adjamé - Cocody", "Cocody - Bingerville"]
+    },
+    {
+        name: "Blokosso",
+        lat: 5.3398,
+        lng: -3.9815,
+        type: "major",
+        description: "Quartier populaire avec un arrêt gbaka très fréquenté",
+        routes: ["Adjamé - Cocody", "Treichville - Cocody"]
+    },
+    {
+        name: "Deux Plateaux Vallon",
+        lat: 5.3532,
+        lng: -3.9930,
+        type: "major",
+        description: "Centre des Deux Plateaux, zone commerciale et résidentielle",
+        routes: ["Adjamé - Deux Plateaux", "Yopougon - Cocody"]
+    },
+    {
+        name: "Riviera 2 Carrefour",
+        lat: 5.3570,
+        lng: -3.9640,
+        type: "major",
+        description: "Carrefour central de Riviera 2, accès aux quartiers environnants",
+        routes: ["Adjamé - Riviera", "Cocody - Bingerville"]
+    },
+    {
+        name: "Riviera 3 Bonoumin",
+        lat: 5.3610,
+        lng: -3.9550,
+        type: "major",
+        description: "Arrêt majeur de Riviera 3, quartier Bonoumin",
+        routes: ["Adjamé - Riviera", "Cocody - Bingerville"]
+    },
+    {
+        name: "Faya (Riviera Palmeraie)",
+        lat: 5.3650,
+        lng: -3.9680,
+        type: "major",
+        description: "Point de ralliement populaire à Riviera Palmeraie",
+        routes: ["Adjamé - Palmeraie", "Abobo - Cocody"]
+    },
+    {
+        name: "Université Félix Houphouët-Boigny",
+        lat: 5.3450,
+        lng: -3.9930,
+        type: "major",
+        description: "Entrée principale de l'université, arrêt très fréquenté par les étudiants",
+        routes: ["Adjamé - Université", "Plateau - Cocody"]
+    },
+
+    // Regular stops
+    {
+        name: "Anono",
+        lat: 5.3370,
+        lng: -3.9730,
+        type: "regular",
+        description: "Arrêt dans le quartier résidentiel d'Anono",
+        routes: ["Adjamé - Cocody"]
+    },
+    {
+        name: "Danga (Cocody)",
+        lat: 5.3415,
+        lng: -3.9855,
+        type: "regular",
+        description: "Arrêt de Danga, quartier historique de Cocody",
+        routes: ["Adjamé - Cocody"]
+    },
+    {
+        name: "Attoban",
+        lat: 5.3680,
+        lng: -3.9900,
+        type: "regular",
+        description: "Quartier Attoban, arrêt résidentiel",
+        routes: ["Adjamé - Angré"]
+    },
+    {
+        name: "Sicogi",
+        lat: 5.3510,
+        lng: -3.9870,
+        type: "regular",
+        description: "Cité Sicogi, arrêt résidentiel",
+        routes: ["Adjamé - Cocody"]
+    },
+    {
+        name: "Mermoz",
+        lat: 5.3470,
+        lng: -3.9920,
+        type: "regular",
+        description: "Arrêt Mermoz, quartier Mermoz Cocody",
+        routes: ["Adjamé - Deux Plateaux"]
+    },
+    {
+        name: "Angré Château",
+        lat: 5.3700,
+        lng: -3.9860,
+        type: "regular",
+        description: "Arrêt Château dans le quartier Angré",
+        routes: ["Adjamé - Angré"]
+    },
+    {
+        name: "Angré Djibi",
+        lat: 5.3780,
+        lng: -3.9770,
+        type: "regular",
+        description: "Arrêt vers Djibi, en direction de la forêt du Banco",
+        routes: ["Adjamé - Angré", "Cocody - Bingerville"]
+    },
+    {
+        name: "Riviera Faya Cité SIR",
+        lat: 5.3600,
+        lng: -3.9715,
+        type: "regular",
+        description: "Arrêt devant la Cité SIR à Riviera Faya",
+        routes: ["Adjamé - Palmeraie"]
+    },
+    {
+        name: "Riviera 4 Synacasci",
+        lat: 5.3660,
+        lng: -3.9480,
+        type: "regular",
+        description: "Arrêt Synacasci dans Riviera 4",
+        routes: ["Adjamé - Riviera", "Cocody - Bingerville"]
+    },
+    {
+        name: "Cocody Abri 2000",
+        lat: 5.3520,
+        lng: -3.9780,
+        type: "regular",
+        description: "Arrêt Abri 2000, quartier résidentiel",
+        routes: ["Adjamé - Cocody"]
+    },
+    {
+        name: "Deux Plateaux Aghien",
+        lat: 5.3560,
+        lng: -3.9960,
+        type: "regular",
+        description: "Entrée de la rue des Jardins, Deux Plateaux",
+        routes: ["Adjamé - Deux Plateaux"]
+    },
+    {
+        name: "Les Perles (Deux Plateaux)",
+        lat: 5.3540,
+        lng: -3.9890,
+        type: "regular",
+        description: "Arrêt Les Perles, quartier Deux Plateaux",
+        routes: ["Adjamé - Deux Plateaux"]
+    },
+    {
+        name: "Laureano Quartier",
+        lat: 5.3488,
+        lng: -3.9770,
+        type: "regular",
+        description: "Arrêt du quartier Laureano",
+        routes: ["Adjamé - Cocody"]
+    },
+    {
+        name: "Cocody Centre (Mairie)",
+        lat: 5.3425,
+        lng: -3.9840,
+        type: "regular",
+        description: "Arrêt devant la Mairie de Cocody",
+        routes: ["Adjamé - Cocody", "Plateau - Cocody"]
+    },
+    {
+        name: "Riviera Bonoumin Carrefour",
+        lat: 5.3595,
+        lng: -3.9580,
+        type: "regular",
+        description: "Carrefour Bonoumin, vers Riviera Golf",
+        routes: ["Adjamé - Riviera"]
+    },
+    {
+        name: "Angré 8e Tranche",
+        lat: 5.3760,
+        lng: -3.9840,
+        type: "regular",
+        description: "Arrêt dans la 8e tranche d'Angré",
+        routes: ["Adjamé - Angré"]
+    },
+    {
+        name: "Cocody M'Pouto",
+        lat: 5.3385,
+        lng: -3.9760,
+        type: "regular",
+        description: "Arrêt M'Pouto, quartier populaire",
+        routes: ["Adjamé - Cocody"]
+    },
+    {
+        name: "Riviera Palmeraie Mosquée",
+        lat: 5.3630,
+        lng: -3.9720,
+        type: "regular",
+        description: "Arrêt près de la mosquée de Riviera Palmeraie",
+        routes: ["Adjamé - Palmeraie"]
+    },
+    {
+        name: "II Plateaux ENA",
+        lat: 5.3505,
+        lng: -3.9950,
+        type: "regular",
+        description: "Arrêt devant l'ENA, Deux Plateaux",
+        routes: ["Adjamé - Deux Plateaux"]
+    },
+    {
+        name: "Angré Bessikoi",
+        lat: 5.3720,
+        lng: -3.9800,
+        type: "regular",
+        description: "Arrêt Bessikoi dans le quartier Angré",
+        routes: ["Adjamé - Angré"]
+    },
+    {
+        name: "Riviera Golf",
+        lat: 5.3550,
+        lng: -3.9520,
+        type: "regular",
+        description: "Arrêt près du Golf Hôtel et quartier résidentiel",
+        routes: ["Adjamé - Riviera"]
+    },
+    {
+        name: "Cocody Ambassades",
+        lat: 5.3460,
+        lng: -3.9880,
+        type: "regular",
+        description: "Zone des ambassades, Cocody centre",
+        routes: ["Adjamé - Cocody", "Plateau - Cocody"]
+    },
+    {
+        name: "Angré Terminus 81-82",
+        lat: 5.3750,
+        lng: -3.9790,
+        type: "regular",
+        description: "Terminus des lignes 81 et 82, Angré",
+        routes: ["Adjamé - Angré"]
+    },
+    {
+        name: "Riviera 2 Lycée Technique",
+        lat: 5.3585,
+        lng: -3.9610,
+        type: "regular",
+        description: "Arrêt devant le Lycée Technique de Riviera 2",
+        routes: ["Adjamé - Riviera"]
+    },
+    {
+        name: "Cocody Marché",
+        lat: 5.3408,
+        lng: -3.9830,
+        type: "regular",
+        description: "Arrêt au marché de Cocody, zone très animée",
+        routes: ["Adjamé - Cocody"]
+    }
+];
+
+// Initialize the map centered on Cocody
+const map = L.map('map').setView([5.3550, -3.9770], 14);
+
+// Add tile layer
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Gbaka Cocody',
+    maxZoom: 19
+}).addTo(map);
+
+// Custom icons
+function createIcon(type) {
+    const size = type === 'major' ? 18 : 13;
+    const color = type === 'major' ? '#D32F2F' : '#FF6B00';
+    return L.divIcon({
+        className: 'custom-marker',
+        html: `<div style="
+            background: ${color};
+            border: 3px solid white;
+            border-radius: 50%;
+            width: ${size * 2}px;
+            height: ${size * 2}px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+        "></div>`,
+        iconSize: [size * 2, size * 2],
+        iconAnchor: [size, size],
+        popupAnchor: [0, -size]
+    });
+}
+
+// Store markers for filtering
+let markers = [];
+
+function createPopup(stop) {
+    const typeLabel = stop.type === 'major' ? 'Carrefour majeur' : 'Arrêt régulier';
+    const typeClass = stop.type === 'major' ? 'major' : 'regular';
+    return `
+        <div class="popup-content">
+            <h3>${stop.name}</h3>
+            <span class="stop-type ${typeClass}">${typeLabel}</span>
+            <p style="font-size: 0.85rem; color: #555; margin: 6px 0;">${stop.description}</p>
+            <div class="routes">
+                <strong>Lignes :</strong><br/>
+                ${stop.routes.map(r => `🚐 ${r}`).join('<br/>')}
+            </div>
+        </div>
+    `;
+}
+
+function renderStops(filter = 'all', searchTerm = '') {
+    // Remove existing markers
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+
+    const filtered = gbakaStops.filter(stop => {
+        const matchFilter = filter === 'all' || stop.type === filter;
+        const matchSearch = searchTerm === '' ||
+            stop.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            stop.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            stop.routes.some(r => r.toLowerCase().includes(searchTerm.toLowerCase()));
+        return matchFilter && matchSearch;
+    });
+
+    filtered.forEach(stop => {
+        const marker = L.marker([stop.lat, stop.lng], { icon: createIcon(stop.type) })
+            .bindPopup(createPopup(stop))
+            .addTo(map);
+        markers.push(marker);
+    });
+
+    document.getElementById('stop-count').textContent = `${filtered.length} arrêt${filtered.length > 1 ? 's' : ''}`;
+}
+
+// Draw approximate route lines connecting major stops
+const majorStops = gbakaStops.filter(s => s.type === 'major');
+const routeCoords = majorStops
+    .sort((a, b) => a.lng - b.lng)
+    .map(s => [s.lat, s.lng]);
+
+L.polyline(routeCoords, {
+    color: '#FF6B00',
+    weight: 3,
+    opacity: 0.4,
+    dashArray: '8, 8'
+}).addTo(map);
+
+// Add Cocody boundary outline (approximate)
+const cocodyBounds = [
+    [5.330, -4.005],
+    [5.330, -3.940],
+    [5.345, -3.940],
+    [5.360, -3.945],
+    [5.380, -3.945],
+    [5.385, -3.970],
+    [5.380, -3.995],
+    [5.360, -4.005],
+    [5.330, -4.005]
+];
+
+L.polygon(cocodyBounds, {
+    color: '#FF6B00',
+    weight: 2,
+    fillOpacity: 0.03,
+    dashArray: '5, 10'
+}).addTo(map);
+
+// Legend
+const legend = L.control({ position: 'bottomright' });
+legend.onAdd = function () {
+    const div = L.DomUtil.create('div', 'legend');
+    div.innerHTML = `
+        <h4>Légende</h4>
+        <div class="legend-item"><div class="legend-dot major"></div> Carrefour majeur</div>
+        <div class="legend-item"><div class="legend-dot regular"></div> Arrêt régulier</div>
+        <div class="legend-item"><div class="legend-line"></div> Itinéraire approximatif</div>
+    `;
+    return div;
+};
+legend.addTo(map);
+
+// Filter buttons
+let currentFilter = 'all';
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        renderStops(currentFilter, document.getElementById('search').value);
+    });
+});
+
+// Search
+document.getElementById('search').addEventListener('input', (e) => {
+    renderStops(currentFilter, e.target.value);
+});
+
+// Initial render
+renderStops();
+</script>
+
+</body>
+</html>
