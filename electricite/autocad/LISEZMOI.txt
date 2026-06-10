@@ -1,0 +1,47 @@
+PLANS DE PRINCIPE ÉLECTRICITÉ - CENTRE DE DRÉPANOCYTOSE - COTONOU (BÉNIN)
+Fichiers AutoCAD modifiables (DXF R2010) - juin 2026 - indice A
+==========================================================================
+
+CONTENU
+-------
+- plan_principe_elec_RDC.dxf : RDC (éclairage + prises, planches E-01/E-02)
+- plan_principe_elec_R1.dxf  : 1er étage (éclairage + prises, E-03/E-04)
+- fond_rdc.png / fond_r1.png : fonds de plan architecte (images référencées
+  par les DXF - À CONSERVER DANS LE MÊME DOSSIER que les DXF)
+
+OUVERTURE
+---------
+Les DXF s'ouvrent et s'éditent directement dans AutoCAD (ou BricsCAD, ZWCAD,
+GstarCAD, DraftSight...). Pour obtenir un .dwg : _SAVEAS > format DWG.
+Si le fond de plan n'apparaît pas : commande _IMAGEATTACH, choisir le PNG,
+point d'insertion 0,0, rotation 0, taille = 126030 x 89105 mm
+(ou commande _IMAGE pour réparer le chemin).
+
+ÉCHELLE ET UNITÉS
+-----------------
+Dessin en millimètres, échelle réelle 1:1 (source : planches DCE architecte
+au 1:300). Vérification : l'entraxe des files de structure (X01-X07, Y00-Y08)
+doit mesurer 8000 mm. Le fond étant un scan, prévoir un recalage fin
+(_ALIGN / _SCALE) si un fond DWG architecte devient disponible.
+
+CALQUES
+-------
+FOND-ARCHI         fond de plan raster (à verrouiller)
+ELEC-ECL-LUM       luminaires (blocs ELEC_PAVE, DOWNLIGHT, TL, etc.)
+ELEC-ECL-SECU      éclairage de sécurité (BAES, BAES+BAEH, ASI)
+ELEC-ECL-CMD       commandes / détecteurs
+ELEC-PC-NORMAL     prises réseau normal (blanc)
+ELEC-PC-SECOURU    prises secourues groupe électrogène (rouge)
+ELEC-PC-IT-ONDULE  prises ondulées / IT médical, GTL, TRI, CPI, LES (vert)
+ELEC-TD            tableaux (TGBT, TD)
+ELEC-TEXTE         libellés
+ELEC-LEGENDE       légende (à droite du plan)
+ELEC-CARTOUCHE     cartouche
+
+Tous les symboles sont des BLOCS (préfixe ELEC_) : éditables, copiables,
+remplaçables globalement (_BEDIT / _RENAME / _REPLACE).
+
+STATUT
+------
+Document de principe APS - implantations indicatives, à caler en phase PRO.
+Réf. : NF C 15-100, NF C 15-211 / CEI 60364-7-710, NF EN 12464-1, NF EN 1838.
